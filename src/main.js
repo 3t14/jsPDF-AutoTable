@@ -10,16 +10,17 @@
 (function (API) {
     'use strict';
 
-    // Ratio between font size and font height. The number comes from jspdf's source code
+    // フォントのサイズとフォントの高さの比率
+    // jspdfのソースコードの数値を参照
     var FONT_ROW_RATIO = 1.15;
 
-    var doc, // The current jspdf instance
-        cursor, // An object keeping track of the x and y position of the next table cell to draw
-        settings, // Default options merged with user options
-        pageCount, // The  page count the current table spans
-        table; // The current Table instance
+    var doc, // 現在のjspdfのインスタンス
+        cursor, // カーソル
+        settings, // 設定
+        pageCount, // ページカウント
+        table; // 現在処理中のテーブルのインスタンス
 
-    // Base style for all themes
+    // すべてのテーマで共通のベーススタイル
     var defaultStyles = {
         cellPadding: 5,
         fontSize: 10,
@@ -37,7 +38,7 @@
         columnWidth: 'auto'
     };
 
-    // Styles for the themes
+    // テーマごとのスタイル
     var themes = {
         'striped': {
             table: {
@@ -76,8 +77,8 @@
         'plain': {header: {fontStyle: 'bold'}}
     };
 
-    // See README.md for documentation of the options
-    // See examples.js for usage examples
+    // 以下のオプションのドキュメントはREAD.meを参照
+    // 使用例についてはexamples.jsを見てください。
     var defaultOptions = function () {
         return {
             // Styling
@@ -89,12 +90,12 @@
             columnStyles: {},
 
             // Properties
-            startY: false, // false indicates the margin.top value
+            startY: false, // falseは、margin.topの値を意味します。
             margin: 40,
             pageBreak: 'auto', // 'auto', 'avoid', 'always'
             tableWidth: 'auto', // number, 'auto', 'wrap'
 
-            // Hooks
+            // フック関数＝コールバック関数
             createdHeaderCell: function (cell, data) {},
             createdCell: function (cell, data) {},
             drawHeaderRow: function (row, data) {},
@@ -107,32 +108,39 @@
     };
 
     /**
-     * Create a table from a set of rows and columns.
+     * 行や列の集合からテーブルを生成する
      *
-     * @param {Object[]|String[]} headers Either as an array of objects or array of strings
-     * @param {Object[][]|String[][]} data Either as an array of objects or array of strings
-     * @param {Object} [options={}] Options that will override the default ones
+     * @param {Object[]|String[]} オブジェクト配列や文字列の配列としてのテーブルヘッダー
+     * @param {Object[][]|String[][]} オブジェクト配列や文字列の配列としてのデータ
+     * @param {Object} [options={}] デフォルトの値を上書きするオプション
      */
     API.autoTable = function (headers, data, options) {
         doc = this;
         settings = initOptions(options || {});
         pageCount = 1;
 
-        // Need a cursor y as it needs to be reset after each page (row.y can't do that)
+        // それぞれのページでリセットされるべきyの座標 （row.yはそれができない）
+        // スタートページならばsettings.startYを対象ページ上の初期y座標とし、
+        // ２ページ目移行はsettings.margin.topを対象ページ上の初期y座標とする。
         cursor = { y: settings.startY === false ? settings.margin.top : settings.startY };
 
         var userStyles = {
-            textColor: 30, // Setting text color to dark gray as it can't be obtained from jsPDF
+            textColor: 30, // jsPDFから獲得できないとき、テキストカラーをダークグレイにする。
             fontSize: doc.internal.getFontSize(),
             fontStyle: doc.internal.getFont().fontStyle
         };
 
-        // Create the table model with its columns, rows and cells
+        // 行、列とセルのテーブルモデルを生成する。
         createModels(headers, data);
         calculateWidths();
 
-        // Page break if there is room for only the first data row
+        // 最初のデータ行分だけしか余白がないのであれば、改ページを行う。
+        
+        // pageBreak設定がautoかつ、table.rows[0]にデータが格納されている時、table.rows[0].heightを
+        // それ以外の時は0を、
+        // firstRowHeight(最初の行の高さ)として代入する。
         var firstRowHeight = table.rows[0] && settings.pageBreak === 'auto' ? table.rows[0].height : 0;
+        
         var minTableBottomPos = settings.startY + settings.margin.bottom + table.headerRow.height + firstRowHeight;
         if (settings.pageBreak === 'avoid') {
             minTableBottomPos += table.height;
@@ -158,7 +166,7 @@
     };
 
     /**
-     * Returns the Y position of the last drawn cell
+     * 最後に描かれるセルのY座標を返す。
      * @returns int
      */
     API.autoTableEndPosY = function () {
@@ -169,10 +177,10 @@
     };
 
     /**
-     * Parses an html table
+     * HTMLテーブルを解釈する。
      *
-     * @param table Html table element
-     * @returns Object Object with two properties, columns and rows
+     * @param html HTMLのTable要素
+     * @returns Object 二つのプロパティ、行と列を含むオブジェクト
      */
     API.autoTableHtmlToJson = function (table) {
         var data = [],
@@ -199,8 +207,8 @@
     };
 
     /**
-     * Improved text function with halign and valign support
-     * Inspiration from: http://stackoverflow.com/questions/28327510/align-text-right-using-jspdf/28433113#28433113
+     * halignとvlaignの機能を持つ改善版テキスト関数
+     * 参考: http://stackoverflow.com/questions/28327510/align-text-right-using-jspdf/28433113#28433113
      */
     API.autoTableText = function (text, x, y, styles) {
         if (typeof x !== 'number' || typeof y !== 'number') {
@@ -220,7 +228,7 @@
             lineCount = splittedText.length || 1;
         }
 
-        // Align the top
+        // top座標の揃え
         y += fontSize * (2 - lineHeightProportion);
 
         if (styles.valign === 'middle')
@@ -271,7 +279,7 @@
             }
         });
 
-        // Unifying
+        // 統一化
         var marginSetting = settings.margin;
         settings.margin = {};
         if (typeof marginSetting.horizontal === 'number') {
@@ -295,10 +303,10 @@
     }
 
     /**
-     * Create models from the user input
+     * ユーザ入力からモデルを生成する
      *
-     * @param inputHeaders
-     * @param inputData
+     * @param inputHeaders 入力ヘッダ
+     * @param inputData 入力データ
      */
     function createModels(inputHeaders, inputData) {
         table = new Table();
@@ -306,7 +314,7 @@
 
         var splitRegex = /\r\n|\r|\n/g;
 
-        // Header row and columns
+        // ヘッダの行と列
         var headerRow = new Row();
         headerRow.raw = inputHeaders;
         headerRow.index = -1;
@@ -314,7 +322,7 @@
         var themeStyles = extend(defaultStyles, themes[settings.theme].table, themes[settings.theme].header);
         headerRow.styles = extend(themeStyles, settings.styles, settings.headerStyles);
 
-        // Columns and header row
+        // 列とヘッダ行
         inputHeaders.forEach(function (rawColumn, dataKey) {
             if (typeof rawColumn === 'object') {
                 dataKey = typeof rawColumn.dataKey !== 'undefined' ? rawColumn.dataKey : rawColumn.key;
@@ -340,7 +348,7 @@
         });
         table.headerRow = headerRow;
 
-        // Rows och cells
+        // それぞれの行とセルオブジェクトに必要な情報を格納する
         inputData.forEach(function (rawRow, i) {
             var row = new Row(rawRow);
             var isAlternate = i % 2 === 0;
@@ -363,10 +371,10 @@
     }
 
     /**
-     * Calculate the column widths
+     * 列幅を算出する
      */
     function calculateWidths() {
-        // Column and table content width
+        // 列とテーブルコンテンツの幅
         var tableContentWidth = 0;
         table.columns.forEach(function (column) {
             column.contentWidth = table.headerRow.cells[column.dataKey].contentWidth;
@@ -390,8 +398,8 @@
         }
         table.width = preferredTableWidth < maxTableWidth ? preferredTableWidth : maxTableWidth;
 
-        // To avoid subjecting columns with little content with the chosen overflow method,
-        // never shrink a column more than the table divided by column count (its "fair part")
+        // 選択されたオーバーフローメソッドを用いた場合、列をセル内の小さなコンテンツ幅に揃えなくするために、
+        // 列カウントによって分割されるテーブル（"規則にかなった列幅"）よりも列を縮小させない。
         var dynamicColumns = [];
         var dynamicColumnsContentWidth = 0;
         var fairWidth = table.width / table.columns.length;
@@ -414,10 +422,10 @@
             staticWidth += column.width;
         });
 
-        // Distributes extra width or trims columns down to fit
+        // 幅を追加して、列幅を分散反映させる。すなわち、フィットするように列幅を縮小する
         distributeWidth(dynamicColumns, staticWidth, dynamicColumnsContentWidth, fairWidth);
 
-        // Row height, table height and text overflow
+        // 行の高さ、テーブルの高さと、テーブルのオーバーフロー
         table.height = 0;
         var all = table.rows.concat(table.headerRow);
         all.forEach(function (row, i) {
@@ -450,7 +458,7 @@
             });
 
             row.heightStyle = row.styles.rowHeight;
-            // TODO Pick the highest row based on font size as well
+            // TODO 同様にフォントサイズに基づく最大の行の高さを取り出す
             row.height = row.heightStyle + lineBreakCount * row.styles.fontSize * FONT_ROW_RATIO;
             table.height += row.height;
         });
@@ -461,7 +469,7 @@
         for (var i = 0; i < dynamicColumns.length; i++) {
             var col = dynamicColumns[i];
             var ratio = col.contentWidth / dynamicColumnsContentWidth;
-            // A column turned out to be none dynamic, start over recursively
+            // 動的に列幅がない状態になる列を再帰的に再計算する。
             var isNoneDynamic = col.contentWidth + extraWidth * ratio < fairWidth;
             if (extraWidth < 0 && isNoneDynamic) {
                 dynamicColumns.splice(i, 1);
@@ -517,7 +525,7 @@
     }
 
     /**
-     * Add a new page if cursor is at the end of page
+     * カーソルがページの終端にある場合、新しいページを追加する
      * @param rowHeight
      * @returns {boolean}
      */
@@ -607,7 +615,7 @@
     }
 
     /**
-     * Ellipsize the text to fit in the width
+     * 幅にフィットするようにテキストを省略化する
      */
     function ellipsize(text, width, styles, ellipsizeStr) {
         ellipsizeStr = typeof  ellipsizeStr !== 'undefined' ? ellipsizeStr : '...';
