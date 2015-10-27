@@ -121,6 +121,7 @@
         tmpSettings = settings, // 設定
         tmpPageCount = pageCount, // ページカウント
         tmpTable = table; // 現在処理中のテーブルのインスタンス
+        console.log("Preserving current autoTable global variables");
         
         settings = initOptions(options || {});
         pageCount = 1;
