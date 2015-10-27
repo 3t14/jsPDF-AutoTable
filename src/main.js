@@ -116,6 +116,12 @@
      */
     API.autoTable = function (headers, data, options) {
         doc = this;
+        // 一時退避用変数の宣言
+        var tmpCursor = cursor, // カーソル
+        tmpSettings = settings, // 設定
+        tmpPageCount = pageCount, // ページカウント
+        tmpTable = table; // 現在処理中のテーブルのインスタンス
+        
         settings = initOptions(options || {});
         pageCount = 1;
 
@@ -161,7 +167,12 @@
         settings.afterPageContent(hooksData());
 
         applyStyles(userStyles);
-
+        
+        // グローバル変数を元に戻す。入れ子対策
+        cursor = tmpCursor;
+        settings = tmpSettings;
+        pageCount = pageCount, // ページカウント
+        table = tmpTable; // 現在処理中のテーブルのインスタンス
         return this;
     };
 
