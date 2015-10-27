@@ -150,7 +150,7 @@
             doc.addPage();
             cursor.y = settings.margin.top;
         }
-
+        console.log(settings);
         applyStyles(userStyles);
         settings.beforePageContent(hooksData());
         if (settings.drawHeaderRow(table.headerRow, hooksData({row: table.headerRow})) !== false) {
